@@ -3209,35 +3209,31 @@ def test_create_ivr_ready_loan(db: Session = Depends(get_db)):
     Returns loan_id and session_token so you can test IVR without going through 9 steps.
     """
     import secrets
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
 
     loan_id = f"LN_TEST_{int(datetime.now(timezone.utc).timestamp())}"
     token = secrets.token_hex(32)
+    session_id = secrets.token_hex(16)
 
-    # Create loan
+    # Create loan with minimal required fields
     loan = Loan(
         loan_id=loan_id,
         farmer_name="Test Farmer",
-        farmer_phone="+916265035390",
+        farmer_mobile="+916265035390",
         amount=50000.0,
         purpose="Agriculture",
-        branch="Test Branch",
         status="pending",
-        kiosk_initiated=True,
-        terms_accepted=True,
-        aadhaar_verified=True,
-        document_uploaded=True,
-        ocr_confirmed=True,
         ivr_status="pending",
     )
     db.add(loan)
 
-    # Create kiosk session
+    # Create kiosk session with required fields
     session = KioskSession(
+        session_id=session_id,
         loan_id=loan_id,
         session_token=token,
-        status="active",
-        current_step="consent",
+        session_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        session_status="active",
     )
     db.add(session)
     db.commit()
@@ -3247,6 +3243,6 @@ def test_create_ivr_ready_loan(db: Session = Depends(get_db)):
     return {
         "loan_id": loan_id,
         "session_token": token,
-        "message": "Loan created at consent step. Use loan_id and session_token in the frontend.",
-        "test_ivr_url": f"POST /api/kiosk/{loan_id}/consent/initiate-ivr with header X-Session-Token: {token}",
+        "message": "Loan created at consent step. Use the kiosk app or curl to test IVR.",
+        "test_ivr_curl": f"curl -X POST {os.getenv('VOICE_WEBHOOK_BASE_URL', 'https://csicfinal-production.up.railway.app')}/api/kiosk/{loan_id}/consent/initiate-ivr -H 'X-Session-Token: {token}' -H 'Content-Type: application/json' -d '{{}}'",
     }
