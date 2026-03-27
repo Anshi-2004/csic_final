@@ -40,6 +40,7 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "https://csic-final-git-main-prasanna-the-prasanns-projects.vercel.app",
     "https://csic-final.vercel.app",
+    "https://cge-csic.vercel.app"
 ]
 _frontend_url = os.getenv("FRONTEND_URL", "")
 if _frontend_url:
