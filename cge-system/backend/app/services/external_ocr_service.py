@@ -44,6 +44,23 @@ class GoogleVisionOCR:
             from google.oauth2 import service_account
 
             creds_path = os.getenv("GOOGLE_VISION_CREDENTIALS_PATH", "")
+
+            # Support credentials as a JSON string in env var (for Railway/cloud)
+            creds_json = os.getenv("GOOGLE_VISION_CREDENTIALS_JSON", "")
+            if creds_json and not creds_path:
+                import tempfile, json as _json
+                # Validate it's real JSON
+                _json.loads(creds_json)
+                # Write to a temp file that persists for the process lifetime
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                )
+                tmp.write(creds_json)
+                tmp.flush()
+                tmp.close()
+                creds_path = tmp.name
+                logger.info(f"Wrote Google Vision credentials from env var to {creds_path}")
+
             if not creds_path:
                 # Try default location relative to backend root
                 creds_path = os.path.join(
