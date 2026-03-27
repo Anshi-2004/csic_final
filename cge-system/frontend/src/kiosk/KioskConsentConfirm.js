@@ -70,10 +70,12 @@ export default function KioskConsentConfirm() {
     useEffect(() => {
         if (phase === 'ivr') {
             let firstPoll = true;
+            let consecutiveErrors = 0;
             const poll = async () => {
                 try {
                     const res = await kioskIvrStatus(state.loanId, state.sessionToken);
                     const data = res.data;
+                    consecutiveErrors = 0; // reset on success
 
                     if (data.remaining_seconds !== undefined) {
                         const serverRemaining = Math.ceil(data.remaining_seconds);
@@ -103,7 +105,25 @@ export default function KioskConsentConfirm() {
                         setPhase('timed_out');
                     }
                 } catch (err) {
-                    console.error('IVR poll error:', err);
+                    const status = err?.response?.status || err?.status;
+                    console.log('IVR poll error, status:', status, 'consecutive:', consecutiveErrors + 1);
+
+                    // 401/403 = session invalidated = webhook already auto-completed
+                    if (status === 401 || status === 403) {
+                        console.log('IVR poll got', status, '— session was auto-completed by webhook');
+                        stopPolling();
+                        setPhase('confirmed');
+                        return;
+                    }
+
+                    // After 3 consecutive errors, assume webhook completed the session
+                    consecutiveErrors++;
+                    if (consecutiveErrors >= 3) {
+                        console.log('IVR poll: 3+ consecutive errors — assuming webhook auto-completed');
+                        stopPolling();
+                        setPhase('confirmed');
+                        return;
+                    }
                 }
             };
 
