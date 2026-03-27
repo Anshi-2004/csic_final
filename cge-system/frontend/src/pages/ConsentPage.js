@@ -255,7 +255,7 @@ export default function ConsentPage() {
     const sendOtp = useCallback(async () => {
         setError(''); setLoading(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/identity/send-otp?mobile=${loan.farmer_mobile}`, { method: 'POST' });
+            const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/identity/send-otp?mobile=${loan.farmer_mobile}`, { method: 'POST' });
             const data = await res.json();
             setOtpRef(data.otp_reference_id); setDemoOtp(data.demo_otp || ''); setOtpSent(true);
         } catch (e) { setError('Failed to send OTP'); }
@@ -267,7 +267,7 @@ export default function ConsentPage() {
         setError(''); setLoading(true);
         try {
             const res = await fetch(
-                `http://localhost:8000/api/identity/verify-otp?mobile=${loan.farmer_mobile}&otp=${otp}&otp_reference_id=${otpRef}`,
+                `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/identity/verify-otp?mobile=${loan.farmer_mobile}&otp=${otp}&otp_reference_id=${otpRef}`,
                 { method: 'POST' }
             );
             const data = await res.json();
@@ -296,7 +296,7 @@ export default function ConsentPage() {
 
                     // Send to backend for verification
                     const res = await fetch(
-                        `http://localhost:8000/api/identity/capture-biometric?farmer_id=${loan.farmer_id}&device_fingerprint_hash=${fp.hash}&webgl_renderer=${encodeURIComponent(fp.metadata.webgl_renderer)}&screen_resolution=${encodeURIComponent(fp.metadata.screen_resolution)}`,
+                        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/identity/capture-biometric?farmer_id=${loan.farmer_id}&device_fingerprint_hash=${fp.hash}&webgl_renderer=${encodeURIComponent(fp.metadata.webgl_renderer)}&screen_resolution=${encodeURIComponent(fp.metadata.screen_resolution)}`,
                         { method: 'POST' }
                     );
                     const data = await res.json();
