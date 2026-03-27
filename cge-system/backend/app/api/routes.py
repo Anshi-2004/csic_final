@@ -2691,17 +2691,11 @@ async def ivr_webhook(
             db.refresh(loan)
             print(f"✅ [IVR WEBHOOK] Loan {loan_id} CONFIRMED by farmer (digit 1)")
 
-            # Auto-complete the kiosk session (best-effort; frontend poll is backup)
-            try:
-                anchor_svc = KioskAnchorService()
-                session_svc = KioskSessionService()
-                anchor_result = anchor_svc.anchor_kiosk_session(db, loan_id)
-                session_svc.complete_session(db, loan_id)
-                print(f"✅ [IVR] Auto-completed kiosk session for loan {loan_id}")
-            except Exception as e:
-                # This is OK — the frontend polling will detect confirmed status
-                # and call kioskComplete to finish the session
-                print(f"⚠ [IVR] Auto-complete failed for {loan_id} (frontend will retry): {e}")
+            # NOTE: Do NOT auto-complete the session here.
+            # Completing the session invalidates the kiosk token,
+            # which causes the frontend polling to get 401 and never
+            # detect the confirmation. The frontend will detect
+            # ivr_status='confirmed' via polling and complete the session itself.
 
             return twiml_say("आपकी सहमति सफलतापूर्वक दर्ज हो गई है। धन्यवाद।")
 
@@ -2919,7 +2913,7 @@ def kiosk_ivr_status(
         if window_start.tzinfo is None:
             window_start = window_start.replace(tzinfo=timezone.utc)
         elapsed = (datetime.now(timezone.utc) - window_start).total_seconds()
-        remaining = max(0, 60 - elapsed)
+        remaining = max(0, 300 - elapsed)
 
     return {
         "ivr_status": loan.ivr_status,
@@ -3205,3 +3199,54 @@ def get_kiosk_document(
         media_type=content_type,
         headers={"Content-Disposition": f"inline; filename=document_{loan_id}"}
     )
+
+
+# ── TEST ENDPOINT: Skip to IVR consent step ──
+@router.post("/test/ivr-ready")
+def test_create_ivr_ready_loan(db: Session = Depends(get_db)):
+    """
+    Creates a loan pre-filled to the IVR consent step for testing.
+    Returns loan_id and session_token so you can test IVR without going through 9 steps.
+    """
+    import secrets
+    from datetime import datetime, timezone
+
+    loan_id = f"LN_TEST_{int(datetime.now(timezone.utc).timestamp())}"
+    token = secrets.token_hex(32)
+
+    # Create loan
+    loan = Loan(
+        loan_id=loan_id,
+        farmer_name="Test Farmer",
+        farmer_phone="+916265035390",
+        amount=50000.0,
+        purpose="Agriculture",
+        branch="Test Branch",
+        status="pending",
+        kiosk_initiated=True,
+        terms_accepted=True,
+        aadhaar_verified=True,
+        document_uploaded=True,
+        ocr_confirmed=True,
+        ivr_status="pending",
+    )
+    db.add(loan)
+
+    # Create kiosk session
+    session = KioskSession(
+        loan_id=loan_id,
+        session_token=token,
+        status="active",
+        current_step="consent",
+    )
+    db.add(session)
+    db.commit()
+
+    print(f"🧪 [TEST] Created IVR-ready loan {loan_id} with session token")
+
+    return {
+        "loan_id": loan_id,
+        "session_token": token,
+        "message": "Loan created at consent step. Use loan_id and session_token in the frontend.",
+        "test_ivr_url": f"POST /api/kiosk/{loan_id}/consent/initiate-ivr with header X-Session-Token: {token}",
+    }
