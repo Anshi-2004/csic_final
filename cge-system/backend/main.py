@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.db.database import init_db, seed_users, seed_demo_data
 from app.api.routes import router
-
+import uvicorn
 
 # §2.3 — Startup check for MASTER_KEY
 MASTER_KEY = os.getenv("MASTER_KEY")
@@ -124,3 +124,6 @@ def root():
 @app.get("/api/health", tags=["Health"])
 def health():
     return {"status": "healthy"}
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
